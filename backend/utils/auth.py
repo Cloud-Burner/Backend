@@ -1,15 +1,14 @@
 from datetime import datetime, timedelta
 
 import jwt
-from jwt import PyJWTError
 from passlib.context import CryptContext
 
-# Настройки JWT
 SECRET_KEY = "secret-change-me"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Заменили bcrypt → pbkdf2_sha256 (работает стабильно)
+pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 
 
 def hash_password(password: str) -> str:
@@ -21,24 +20,18 @@ def verify_password(plain: str, hashed: str) -> bool:
 
 
 def create_access_token(data: dict, expires_delta: timedelta = None) -> str:
-    """
-    Генерация JWT токена.
-    """
     to_encode = data.copy()
     expire = datetime.utcnow() + (
         expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     )
     to_encode.update({"exp": expire})
-    token = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    return token
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 
 def decode_access_token(token: str) -> dict | None:
-    """
-    Декодирование токена. Возвращает payload или None, если токен невалидный.
-    """
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        return payload
-    except PyJWTError:
-        return None
+    payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+    return payload
+    # except ExpiredSignatureError:
+    #     return None
+    # except InvalidTokenError:
+    #     return None
