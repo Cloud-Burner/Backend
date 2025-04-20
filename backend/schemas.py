@@ -11,7 +11,7 @@ class UserCreate(BaseModel):
     password: str
     first_name: str
     last_name: str
-    phone_number: int | None = None
+    phone_number: str | None = None
     role: UserRoles = UserRoles.USER
 
 

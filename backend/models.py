@@ -19,7 +19,7 @@ class User(Base):
 
     email: Mapped[str] = mapped_column(String(256), unique=True, index=True)
     email_confirmed: Mapped[bool] = mapped_column(Boolean, default=False)
-    phone_number: Mapped[int | None] = mapped_column(nullable=True)
+    phone_number: Mapped[str | None] = mapped_column(nullable=True)
 
     hashed_password: Mapped[str] = mapped_column(String(256))
     role: Mapped[UserRoles] = mapped_column(default=UserRoles.USER)
