@@ -67,7 +67,7 @@ class ResultTask(BaseModel):
 
     number: str
     user_id: int
-    link: str
+    link: str | None = None
 
 
 class ResultTasksRequest(BaseModel):
