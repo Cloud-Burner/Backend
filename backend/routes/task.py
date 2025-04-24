@@ -20,19 +20,23 @@ router = APIRouter(prefix="/task", tags=["tasks"])
 main_exchange = RabbitExchange(name=settings.main_exchange)
 
 
-@router.get("")
+@router.get("s")
 async def get_task(
-    task_type: schemas.TaskType = Query(...),
+    task_type: schemas.TaskType | None = Query(default=None),
     done: bool = False,
+    all_tasks: bool = False,
+    limit: int = Query(default=100),
+    offset: int = Query(default=0),
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db),
 ) -> list[schemas.TaskOut]:
     user_id = int(auth_utils.decode_access_token(token).get("sub"))
-    return (
-        db.query(Task)
-        .filter(Task.user_id == user_id, Task.type == task_type, Task.done == done)
-        .all()
+    query = (
+        db.query(Task).order_by(Task.created_at.desc()).filter(Task.user_id == user_id)
     )
+    if not all_tasks:
+        query = query.filter(Task.done == done, Task.type == task_type)
+    return query.offset(offset).limit(limit).all()
 
 
 @router.post("/fpga")

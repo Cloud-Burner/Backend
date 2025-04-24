@@ -1,20 +1,137 @@
-# @router.get("/calendar/available", response_model=List[datetime])
-# def get_available_hours(db: Session = Depends(...)):
-#     now = datetime.utcnow()
-#     window_end = now + timedelta(days=2)
-#
-#     # Все часы, на которые уже есть бронь
-#     booked_hours = db.query(Booking.start_time).filter(
-#         Booking.start_time >= now,
-#         Booking.start_time <= window_end
-#     ).all()
-#
-#     booked_set = {b[0] for b in booked_hours}
-#
-#     # Генерируем все слоты на 2 дня вперёд, по часу
-#     all_hours = [now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=i)
-#                  for i in range(2 * 24)]
-#
-#     available = [slot for slot in all_hours if slot not in booked_set]
-#
-#     return available
+from datetime import datetime, timedelta
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from sqlalchemy import and_, select
+from sqlalchemy.orm import Session
+
+from backend import schemas
+from backend.core.db import get_db
+from backend.enums import BookEquipmentType
+from backend.models import Booking
+from backend.routes.authorization import oauth2_scheme
+from backend.utils import auth as auth_utils
+
+router = APIRouter(prefix="/booking", tags=["booking"])
+
+
+@router.post("")
+async def create_booking(
+    booking_in: schemas.BookingRequest,
+    db: Session = Depends(get_db),
+    token: str = Depends(oauth2_scheme),
+) -> schemas.BookingRequest:
+    user_id = int(auth_utils.decode_access_token(token).get("sub"))
+    query = select(Booking).where(
+        and_(
+            Booking.user_id == user_id,
+            Booking.type == booking_in.type,
+            Booking.end_time > datetime.utcnow(),
+        )
+    )
+
+    if db.execute(query).scalar_one_or_none():
+        raise HTTPException(
+            status_code=400, detail="У вас уже есть активная бронь этого типа"
+        )
+
+    booking = Booking(
+        user_id=user_id,
+        start_time=booking_in.start_time,
+        end_time=booking_in.end_time,
+        type=booking_in.type,
+    )
+    db.add(booking)
+    db.commit()
+    db.refresh(booking)
+    return booking
+
+
+@router.get(
+    "s",
+)
+async def get_my_bookings(
+    db: Session = Depends(get_db),
+    token: str = Depends(oauth2_scheme),
+    equipment_type: BookEquipmentType | None = None,
+    only_actual: bool = False,
+) -> list[schemas.BookingResponse]:
+    user_id = int(auth_utils.decode_access_token(token).get("sub"))
+    query = (
+        select(Booking)
+        .where(Booking.user_id == user_id)
+        .order_by(Booking.start_time.desc())
+    )
+    query = query.filter(Booking.type == equipment_type) if equipment_type else query
+    query = query.filter(Booking.end_time > datetime.utcnow()) if only_actual else query
+    bookings = db.scalars(query)
+    now = datetime.utcnow()
+    ans = [
+        schemas.BookingResponse(
+            id=b.id,
+            start_time=b.start_time,
+            end_time=b.end_time,
+            type=b.type,
+            active=True if b.start_time > now and b.end_time > now else False,
+        )
+        for b in bookings
+    ]
+
+    return ans
+
+
+@router.delete("gs")
+async def delete_booking(
+    booking_id: int = Query(...),
+    db: Session = Depends(get_db),
+    token: str = Depends(oauth2_scheme),
+):
+    user_id = int(auth_utils.decode_access_token(token).get("sub"))
+    query = select(Booking).where(
+        and_(
+            Booking.id == booking_id,
+            Booking.user_id == user_id,
+            Booking.end_time > datetime.utcnow(),
+        )
+    )
+    booking = db.execute(query).scalar_one_or_none()
+    if not booking:
+        raise HTTPException(
+            status_code=404, detail="Бронь не найдена или уже завершена"
+        )
+
+    db.delete(booking)
+    db.commit()
+    return Response(status_code=204)
+
+
+@router.get("s/available", response_model=schemas.AvailableSlots)
+async def get_available_hours(
+    request: schemas.BookingsAvailableRequest = Query(...),
+    db: Session = Depends(get_db),
+):
+    """
+    Получить список доступных часовых интервалов между start_date и end_date для заданного типа устройства
+    """
+
+    query = select(Booking).where(
+        and_(
+            Booking.type == request.type,
+            Booking.end_time > request.start_date,
+            Booking.start_time < request.end_date,
+        )
+    )
+    busy_bookings = db.scalars(query).all()
+
+    available_slots = []
+    current = request.start_date.replace(minute=0, second=0, microsecond=0)
+    while current < request.end_date:
+        next_hour = current + timedelta(hours=1)
+        overlapping = any(
+            booking.start_time < next_hour and booking.end_time > current
+            for booking in busy_bookings
+        )
+        if not overlapping:
+            available_slots.append(current.strftime("%Y-%m-%d %H:%M"))
+        current = next_hour
+
+    return schemas.AvailableSlots(slots=available_slots, type=request.type)

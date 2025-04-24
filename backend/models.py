@@ -3,7 +3,7 @@ from datetime import datetime
 from sqlalchemy import Boolean, DateTime, ForeignKey, String
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
-from backend.enums import TaskType, UserRoles
+from backend.enums import BookEquipmentType, TaskType, UserRoles
 
 
 class Base(DeclarativeBase):
@@ -19,7 +19,7 @@ class User(Base):
 
     email: Mapped[str] = mapped_column(String(256), unique=True, index=True)
     email_confirmed: Mapped[bool] = mapped_column(Boolean, default=False)
-    phone_number: Mapped[int | None] = mapped_column(nullable=True)
+    phone_number: Mapped[str | None] = mapped_column(nullable=True)
 
     hashed_password: Mapped[str] = mapped_column(String(256))
     role: Mapped[UserRoles] = mapped_column(default=UserRoles.USER)
@@ -57,4 +57,6 @@ class Booking(Base):
 
     start_time: Mapped[datetime] = mapped_column(index=True)
     end_time: Mapped[datetime] = mapped_column(index=True)
+
+    type: Mapped[BookEquipmentType]
     created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
