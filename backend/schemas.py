@@ -1,9 +1,10 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 
-from backend.enums import LangExecutionType, TaskType, UserRoles
+from backend.core.settings import settings
+from backend.enums import BookEquipmentType, LangExecutionType, TaskType, UserRoles
 
 
 class UserCreate(BaseModel):
@@ -73,3 +74,60 @@ class ResultTask(BaseModel):
 class ResultTasksRequest(BaseModel):
     task_type: TaskType
     actual: bool = False
+
+
+class BookingRequest(BaseModel):
+    """BookingRequest represents a"""
+
+    start_time: datetime
+    end_time: datetime
+    type: BookEquipmentType
+
+    @field_validator("start_time", "end_time")
+    @classmethod
+    def validate_hour_precision(cls, value: datetime) -> datetime:
+        if value.minute != 0 or value.second != 0 or value.microsecond != 0:
+            raise ValueError("Время должно быть ровно по часу, без минут и секунд")
+        return value
+
+    @model_validator(mode="after")
+    def validate_duration(cls, values: "BookingRequest") -> "BookingRequest":
+        if values.end_time - values.start_time != timedelta(hours=1):
+            raise ValueError(
+                "Разница между start_time и end_time должна быть ровно 1 час"
+            )
+
+        return values
+
+
+class BookingResponse(BaseModel):
+    id: int
+    start_time: datetime
+    end_time: datetime
+    type: BookEquipmentType
+    active: bool
+
+
+class BookingsAvailableRequest(BaseModel):
+    type: BookEquipmentType
+    start_date: datetime = datetime.now()
+    end_date: datetime = datetime.now() + timedelta(days=2)
+
+    @model_validator(mode="after")
+    def validate_duration(cls, values: "BookingRequest") -> "BookingRequest":
+        if values.end_date - values.start_date > timedelta(
+            days=settings.booking_max_days
+        ) or values.end_date - datetime.now() >= timedelta(
+            days=settings.booking_max_days
+        ):
+            raise ValueError(
+                f"Бронь производится максимум на {settings.booking_max_days + 1} дня от текущего"
+            )
+        if values.end_date < values.start_date:
+            raise ValueError("Неправильные даты начало позже чем конец")
+        return values
+
+
+class AvailableSlots(BaseModel):
+    slots: list[str]
+    type: BookEquipmentType

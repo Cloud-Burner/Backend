@@ -3,7 +3,7 @@ from datetime import datetime
 from sqlalchemy import Boolean, DateTime, ForeignKey, String
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
-from backend.enums import TaskType, UserRoles
+from backend.enums import BookEquipmentType, TaskType, UserRoles
 
 
 class Base(DeclarativeBase):
@@ -57,4 +57,6 @@ class Booking(Base):
 
     start_time: Mapped[datetime] = mapped_column(index=True)
     end_time: Mapped[datetime] = mapped_column(index=True)
+
+    type: Mapped[BookEquipmentType]
     created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)

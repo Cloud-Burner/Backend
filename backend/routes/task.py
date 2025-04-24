@@ -26,14 +26,16 @@ async def get_task(
     done: bool = False,
     all_tasks: bool = False,
     limit: int = Query(default=100),
-    offset: int= Query(default=0),
+    offset: int = Query(default=0),
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db),
 ) -> list[schemas.TaskOut]:
     user_id = int(auth_utils.decode_access_token(token).get("sub"))
-    query = db.query(Task).order_by(Task.created_at.desc()).filter(Task.user_id == user_id)
+    query = (
+        db.query(Task).order_by(Task.created_at.desc()).filter(Task.user_id == user_id)
+    )
     if not all_tasks:
-        query = query.filter(Task.done == done,  Task.type == task_type)
+        query = query.filter(Task.done == done, Task.type == task_type)
     return query.offset(offset).limit(limit).all()
 
 

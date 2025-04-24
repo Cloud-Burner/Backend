@@ -36,6 +36,11 @@ class Settings(BaseSettings):
     result_bucket: str = "test"
     task_bucket: str = "test"
 
+    booking_max_days: int = 3
+    # sync plates
+    terminal_export_address: str = "ws://0.0.0.0:8765"
+    stream_export_address: str = "http://192.168.1.36:8085"
+
     docs_url: str = "/api/doc"
     openapi_url: str = "/api/openapi.json"
 
