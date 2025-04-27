@@ -3,7 +3,6 @@ from datetime import datetime, timedelta
 
 from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 
-from backend.core.settings import settings
 from backend.enums import BookEquipmentType, LangExecutionType, TaskType, UserRoles
 
 
@@ -110,24 +109,20 @@ class BookingResponse(BaseModel):
 
 class BookingsAvailableRequest(BaseModel):
     type: BookEquipmentType
-    start_date: datetime = datetime.now()
-    end_date: datetime = datetime.now() + timedelta(days=2)
-
-    @model_validator(mode="after")
-    def validate_duration(cls, values: "BookingRequest") -> "BookingRequest":
-        if values.end_date - values.start_date > timedelta(
-            days=settings.booking_max_days
-        ) or values.end_date - datetime.now() >= timedelta(
-            days=settings.booking_max_days
-        ):
-            raise ValueError(
-                f"Бронь производится максимум на {settings.booking_max_days + 1} дня от текущего"
-            )
-        if values.end_date < values.start_date:
-            raise ValueError("Неправильные даты начало позже чем конец")
-        return values
 
 
 class AvailableSlots(BaseModel):
     slots: list[str]
     type: BookEquipmentType
+
+
+class SessionToken(BaseModel):
+    token: str
+
+
+class FpgaSyncTask(BaseModel):
+    """FpgaTask represents a task from user."""
+
+    number: str
+    flash_file: str | None = None
+    instruction: str | None = None

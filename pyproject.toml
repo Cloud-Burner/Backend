@@ -25,6 +25,7 @@ faststream = {extras = ["fastapi"], version = "^0.5.39"}
 aio-pika = "^9.5.5"
 websockets = "^15.0.1"
 httpx = "^0.28.1"
+loguru = "^0.7.3"
 
 
 [tool.poetry.dev-dependencies]

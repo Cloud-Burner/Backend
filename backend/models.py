@@ -57,6 +57,7 @@ class Booking(Base):
 
     start_time: Mapped[datetime] = mapped_column(index=True)
     end_time: Mapped[datetime] = mapped_column(index=True)
+    session_token: Mapped[str] = mapped_column(index=True)
 
     type: Mapped[BookEquipmentType]
     created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)

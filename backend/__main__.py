@@ -1,4 +1,5 @@
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from fastapi_offline import FastAPIOffline
 from uvicorn import Config, Server
 
@@ -7,10 +8,11 @@ from backend.routes.authorization import router as auth_router
 from backend.routes.booking import router as booking_router
 from backend.routes.configuration import router as configuration_router
 from backend.routes.result_consuming import router as rabbit_router
-from backend.routes.streaming import router as streaming_router
 from backend.routes.task import router as task_router
 from backend.routes.terminal import router as terminal_router
-
+from backend.routes.video_streaming import router as streaming_router
+from backend.routes.sync_fpga_task import router as sync_fpga_router
+# from backend.core.logger import setup_logger
 app = FastAPIOffline(
     title=settings.app_name,
     version=settings.version,
@@ -18,7 +20,7 @@ app = FastAPIOffline(
     openapi_url=settings.openapi_url,
     redoc_url=None,
 )
-
+UPLOAD_DIR = "./static/hls"
 app.include_router(auth_router)
 app.include_router(task_router)
 app.include_router(rabbit_router)
@@ -26,6 +28,7 @@ app.include_router(configuration_router)
 app.include_router(booking_router)
 app.include_router(terminal_router)
 app.include_router(streaming_router)
+app.include_router(sync_fpga_router)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -35,12 +38,14 @@ app.add_middleware(
 )
 
 if __name__ == "__main__":
+    # setup_logger()
     config = Config(
         app=app,
         host=settings.host,
         port=settings.port,
         reload=settings.reload,
         log_level="info",
+        # log_config=None
     )
     server = Server(config)
     server.run()

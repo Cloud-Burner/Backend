@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
@@ -25,7 +26,7 @@ async def create_booking(
         and_(
             Booking.user_id == user_id,
             Booking.type == booking_in.type,
-            Booking.end_time > datetime.utcnow(),
+            Booking.end_time > datetime.now(),
         )
     )
 
@@ -39,6 +40,7 @@ async def create_booking(
         start_time=booking_in.start_time,
         end_time=booking_in.end_time,
         type=booking_in.type,
+        session_token=str(uuid.uuid4()),
     )
     db.add(booking)
     db.commit()
@@ -62,16 +64,16 @@ async def get_my_bookings(
         .order_by(Booking.start_time.desc())
     )
     query = query.filter(Booking.type == equipment_type) if equipment_type else query
-    query = query.filter(Booking.end_time > datetime.utcnow()) if only_actual else query
+    query = query.filter(Booking.end_time > datetime.now()) if only_actual else query
     bookings = db.scalars(query)
-    now = datetime.utcnow()
+    now = datetime.now()
     ans = [
         schemas.BookingResponse(
             id=b.id,
             start_time=b.start_time,
             end_time=b.end_time,
             type=b.type,
-            active=True if b.start_time > now and b.end_time > now else False,
+            active=True if b.start_time < now and b.end_time > now else False,
         )
         for b in bookings
     ]
@@ -79,7 +81,7 @@ async def get_my_bookings(
     return ans
 
 
-@router.delete("gs")
+@router.delete("")
 async def delete_booking(
     booking_id: int = Query(...),
     db: Session = Depends(get_db),
@@ -106,25 +108,26 @@ async def delete_booking(
 
 @router.get("s/available", response_model=schemas.AvailableSlots)
 async def get_available_hours(
-    request: schemas.BookingsAvailableRequest = Query(...),
+    type: BookEquipmentType = Query(...),
     db: Session = Depends(get_db),
 ):
     """
     Получить список доступных часовых интервалов между start_date и end_date для заданного типа устройства
     """
-
+    start_date: datetime = datetime.now()
+    end_date: datetime = datetime.now() + timedelta(days=2)
     query = select(Booking).where(
         and_(
-            Booking.type == request.type,
-            Booking.end_time > request.start_date,
-            Booking.start_time < request.end_date,
+            Booking.type == type,
+            Booking.end_time > start_date,
+            Booking.start_time < end_date,
         )
     )
     busy_bookings = db.scalars(query).all()
 
     available_slots = []
-    current = request.start_date.replace(minute=0, second=0, microsecond=0)
-    while current < request.end_date:
+    current = start_date.replace(minute=0, second=0, microsecond=0)
+    while current < end_date:
         next_hour = current + timedelta(hours=1)
         overlapping = any(
             booking.start_time < next_hour and booking.end_time > current
@@ -134,4 +137,37 @@ async def get_available_hours(
             available_slots.append(current.strftime("%Y-%m-%d %H:%M"))
         current = next_hour
 
-    return schemas.AvailableSlots(slots=available_slots, type=request.type)
+    return schemas.AvailableSlots(slots=available_slots, type=type)
+
+
+@router.get("/session_token")
+async def get_session_token(
+    booking_id: int = Query(...),
+    db: Session = Depends(get_db),
+    token: str = Depends(oauth2_scheme),
+) -> schemas.SessionToken:
+    user_id = int(auth_utils.decode_access_token(token).get("sub"))
+    now = datetime.now()
+    query = select(Booking).where(
+        Booking.id == booking_id,
+        Booking.user_id == user_id,
+        Booking.start_time < now,
+        Booking.end_time > now,
+    )
+    booking = db.execute(query).scalar_one_or_none()
+    if not booking:
+        raise HTTPException(401, detail="У вас нет активной брони")
+    return schemas.SessionToken(token=booking.session_token)
+
+
+@router.get("")
+async def get_booking_by_token(
+    token: str = Query(...),
+    type: BookEquipmentType = Query(...),
+    db: Session = Depends(get_db),
+):
+    query = select(Booking).where(Booking.session_token == token, Booking.type ==type)
+    booking = db.execute(query).scalar_one_or_none()
+    if not booking:
+        return HTTPException(401, detail="You have no booking with this token")
+    return booking

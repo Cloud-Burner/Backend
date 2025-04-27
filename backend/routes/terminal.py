@@ -1,42 +1,61 @@
-import asyncio
+from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
 
-import websockets
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-
+from backend.core.logger import logger
 from backend.core.settings import settings
+from backend.crud import get_actual_booking_token
+from backend.schemas import BookEquipmentType
 
 router = APIRouter(tags=["terminal"])
 
 
-@router.websocket("/terminal/ws")
-async def terminal_proxy(websocket: WebSocket):
+terminal_websocket = None
+client_websocket = None
+
+
+@router.websocket("/terminal/exporter")
+async def terminal_endpoint(websocket: WebSocket, token: str = Query(...)):
+    global terminal_websocket
+    if token != settings.terminal_key:
+        logger.error("Unauthorized access to terminal websocket")
+        await websocket.close(4000)
+        return
+
     await websocket.accept()
+    terminal_websocket = websocket
+    logger.info("Terminal connected")
+
     try:
-        async with websockets.connect(settings.terminal_export_address) as agent_ws:
+        while True:
+            data = await websocket.receive_text()
+            if client_websocket:
+                await client_websocket.send_text(data)
+    except WebSocketDisconnect:
+        logger.error("Terminal disconnected")
+    finally:
+        if terminal_websocket == websocket:
+            terminal_websocket = None
 
-            async def user_to_agent():
-                try:
-                    while True:
-                        data = await websocket.receive_text()
-                        await agent_ws.send(data)
-                except WebSocketDisconnect:
-                    await agent_ws.close()
 
-            async def agent_to_user():
-                try:
-                    async for message in agent_ws:
-                        await websocket.send_text(message)
-                except Exception:
-                    await websocket.close()
+@router.websocket("/terminal/client")
+async def client_endpoint(websocket: WebSocket, token: str = Query(...)):
+    global client_websocket
+    await websocket.accept()
+    if get_actual_booking_token(type=BookEquipmentType.raspberry_pi) != token:
+        await websocket.close(code=4001)
+        logger.info(f"Не авторизированный клиент, tokent {token}")
+        return
 
-            async def close_after_timeout():
-                await asyncio.sleep(3600)
-                await websocket.close(code=1000, reason="Session timeout")
-                await agent_ws.close()
+    client_websocket = websocket
+    logger.info("Client connected")
 
-            await asyncio.gather(
-                user_to_agent(), agent_to_user(), close_after_timeout()
-            )
-
-    except Exception as e:
-        await websocket.close(code=1011, reason=str(e))
+    try:
+        await terminal_websocket.send_text("\r")
+        while True:
+            data = await websocket.receive_text()
+            if terminal_websocket:
+                await terminal_websocket.send_text(data)
+    except WebSocketDisconnect:
+        logger.info("Client disconnected")
+    finally:
+        if client_websocket == websocket:
+            client_websocket = None

@@ -37,14 +37,21 @@ class Settings(BaseSettings):
     task_bucket: str = "test"
 
     booking_max_days: int = 3
+
     # sync plates
-    terminal_export_address: str = "ws://0.0.0.0:8765"
-    stream_export_address: str = "http://192.168.1.36:8085"
+    terminal_export_address: str = "ws://192.168.1.36:8765"
+    stream_export_address: str = "http://192.168.1.36:8080"
+    sync_fpga_queue: str = "sync_de10_lite_1"
+
+    # preshared keys
+    rpi_camera_key: str = "rpi"
+    green_camera_key: str = "green"
+    terminal_key: str = "terminal"
 
     docs_url: str = "/api/doc"
     openapi_url: str = "/api/openapi.json"
 
-    host: str = "localhost"
+    host: str = "0.0.0.0"
     port: int = 8001
     reload: bool = True
 
