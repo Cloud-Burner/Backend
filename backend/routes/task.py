@@ -15,6 +15,7 @@ from backend.routes.authorization import oauth2_scheme
 from backend.routes.result_consuming import router as rabbit_router
 from backend.utils import auth as auth_utils
 from backend.utils import s3
+from backend.enums import TaskType
 
 router = APIRouter(prefix="/task", tags=["tasks"])
 
@@ -92,6 +93,66 @@ async def create_task_fpga(
         id=task_number,
         user_id=user_id,
         type=task_type,
+        done=False,
+        created_at=datetime.utcnow(),
+    )
+    db.add(task)
+    db.commit()
+    db.refresh(task)
+    return task
+
+
+@router.post("/micro")
+async def create_task_micro(
+    flash_file: UploadFile = File(...),
+    instruction_file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    token: str = Depends(oauth2_scheme),
+):
+    user_id = int(auth_utils.decode_access_token(token).get("sub"))
+    if Path(flash_file.filename).suffix.lower() != ".hex":
+        raise HTTPException(
+            status_code=400, detail="Разрешены только hex    файлы, в качестве прошивки"
+        )
+    if Path(instruction_file.filename).suffix.lower() != ".txt":
+        raise HTTPException(
+            status_code=400, detail="Разрешены только txt файлы в качестве инструкции"
+        )
+
+    existing = (
+        db.query(Task)
+        .join(Task.user)
+        .filter(User.id == user_id, Task.type == TaskType.ARDUINO_NANO, Task.done.is_(False))
+        .first()
+    )
+    if existing:
+        raise HTTPException(
+            status_code=409, detail="У вас уже есть незавершённая задача этого типа."
+        )
+    task_number = str(uuid.uuid4())
+    flash: bytes = await flash_file.read()
+    instruction: bytes = await instruction_file.read()
+    flash_file_name = f"{user_id}_{task_number}.hex"
+    instruction_file_name = f"{user_id}_{task_number}.txt"
+    await s3.upload_bytes(bucket=settings.task_bucket, file=flash, name=flash_file_name)
+    await s3.upload_bytes(
+        bucket=settings.task_bucket, file=instruction, name=instruction_file_name
+    )
+
+    await rabbit_router.broker.publish(
+        message=schemas.FpgaTask(
+            number=task_number,
+            user_id=user_id,
+            flash_file=flash_file_name,
+            instruction_file=instruction_file_name,
+        ),
+        headers={"board": TaskType.ARDUINO_NANO},
+        exchange=main_exchange,
+    )
+    task = Task(
+        id=task_number,
+        user_id=user_id,
+        type=TaskType.ARDUINO_NANO,
         done=False,
         created_at=datetime.utcnow(),
     )
