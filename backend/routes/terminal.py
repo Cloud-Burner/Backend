@@ -49,7 +49,8 @@ async def client_endpoint(websocket: WebSocket, token: str = Query(...)):
     logger.info("Client connected")
 
     try:
-        await terminal_websocket.send_text("\r")
+        if terminal_websocket:
+            await terminal_websocket.send_text("\r")
         while True:
             data = await websocket.receive_text()
             if terminal_websocket:

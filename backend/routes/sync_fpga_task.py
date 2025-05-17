@@ -12,6 +12,18 @@ from backend.schemas import BookEquipmentType, FpgaSyncTask
 from backend.utils import s3
 from backend.enums import PinStates
 
+
+pin_button_mapper = {
+    1: 24,
+    2: 23,
+    3: 25,
+    4: 15,
+    5: 18,
+    6: 1,
+    7: 8,
+    8: 7
+}
+
 router = APIRouter(prefix="/sync/fpga", tags=["sync_fpga"])
 
 queue = RabbitQueue(name=settings.sync_fpga_queue, durable=True)
@@ -44,6 +56,8 @@ async def sync_fpga_command(token: str, pin: int, state: PinStates ):
         return HTTPException(status_code=401, detail="У вас нет активной сессии")
     task_number = str(uuid.uuid4())
     await rabbit_router.broker.publish(
-        message=FpgaSyncTask(number=task_number, instruction=f"pin {pin} {state.value}"), queue=queue
+        message=FpgaSyncTask(number=task_number, instruction=f"pin {pin_button_mapper.get(pin, 1)} {state.value}"), queue=queue
     )
     logger.info("Sync command task sent to MQ")
+
+

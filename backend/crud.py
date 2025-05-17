@@ -14,4 +14,5 @@ def get_actual_booking_token(type: BookEquipmentType):
         Booking.type == type, Booking.start_time < now, Booking.end_time > now
     )
     booking = db.execute(query).scalar_one_or_none()
+    db.close()
     return booking.session_token if booking else None
