@@ -31,21 +31,21 @@ app = FastAPIOffline(
     openapi_url=settings.openapi_url,
     redoc_url=None,
 )
-UPLOAD_DIR = "./static/hls"
-app.include_router(auth_router)
-app.include_router(task_router)
-app.include_router(rabbit_router)
-app.include_router(configuration_router)
-app.include_router(booking_router)
-app.include_router(terminal_router)
-app.include_router(streaming_router)
-app.include_router(sync_fpga_router)
+prefix = ""
+app.include_router(auth_router, prefix=prefix)
+app.include_router(task_router, prefix=prefix)
+app.include_router(rabbit_router, prefix=prefix)
+app.include_router(configuration_router, prefix=prefix)
+app.include_router(booking_router, prefix=prefix)
+app.include_router(terminal_router, prefix=prefix)
+app.include_router(streaming_router, prefix=prefix)
+app.include_router(sync_fpga_router, prefix=prefix)
 
 def task_timeout_watcher():
     while True:
         try:
             db: Session = next(get_db())
-            timeout_time = datetime.utcnow() - timedelta(minutes=5)
+            timeout_time = datetime.utcnow() - timedelta(minutes=15)
 
             tasks_to_update = (
                 db.query(Task)
