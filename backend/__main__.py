@@ -3,7 +3,6 @@ from datetime import datetime, timedelta
 from threading import Thread
 
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 from fastapi_offline import FastAPIOffline
 from loguru import logger
 from sqlalchemy.orm import Session
@@ -41,6 +40,7 @@ app.include_router(terminal_router, prefix=prefix)
 app.include_router(streaming_router, prefix=prefix)
 app.include_router(sync_fpga_router, prefix=prefix)
 
+
 def task_timeout_watcher():
     while True:
         try:
@@ -60,7 +60,9 @@ def task_timeout_watcher():
 
             if tasks_to_update:
                 db.commit()
-                logger.info(f"[scheduler] Отметили {len(tasks_to_update)} просроченных задач")
+                logger.info(
+                    f"[scheduler] Отметили {len(tasks_to_update)} просроченных задач"
+                )
 
         except Exception as e:
             logger.error(f"[scheduler] Ошибка: {e}")
@@ -68,6 +70,8 @@ def task_timeout_watcher():
             db.close()
 
         time.sleep(60)  # Ждать 1 минуту
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -75,10 +79,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
 @app.on_event("startup")
 def start_timeout_scheduler():
     t = Thread(target=task_timeout_watcher, daemon=True)
     t.start()
+
 
 if __name__ == "__main__":
     # setup_logger()

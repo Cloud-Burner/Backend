@@ -1,11 +1,9 @@
 import uuid
 from datetime import datetime, timedelta
 
-from pydantic import (BaseModel, EmailStr, Field, field_validator,
-                      model_validator)
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 
-from backend.enums import (BookEquipmentType, LangExecutionType, TaskType,
-                           UserRoles)
+from backend.enums import BookEquipmentType, LangExecutionType, TaskType, UserRoles
 
 
 class UserCreate(BaseModel):

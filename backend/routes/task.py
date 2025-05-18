@@ -2,20 +2,19 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 
-from fastapi import (APIRouter, Depends, File, Form, HTTPException, Query,
-                     UploadFile)
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from faststream.rabbit import RabbitExchange
 from sqlalchemy.orm import Session
 
 from backend import schemas
 from backend.core.db import get_db
 from backend.core.settings import settings
+from backend.enums import TaskType
 from backend.models import Task, User
 from backend.routes.authorization import oauth2_scheme
 from backend.routes.result_consuming import router as rabbit_router
 from backend.utils import auth as auth_utils
 from backend.utils import s3
-from backend.enums import TaskType
 
 router = APIRouter(prefix="/task", tags=["tasks"])
 
@@ -122,7 +121,9 @@ async def create_task_micro(
     existing = (
         db.query(Task)
         .join(Task.user)
-        .filter(User.id == user_id, Task.type == TaskType.ARDUINO_NANO, Task.done.is_(False))
+        .filter(
+            User.id == user_id, Task.type == TaskType.ARDUINO_NANO, Task.done.is_(False)
+        )
         .first()
     )
     if existing:

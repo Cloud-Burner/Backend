@@ -26,21 +26,15 @@ class Settings(BaseSettings):
     main_exchange: str = "main"
     result_queue: str = "result"
 
-    jwt_secret: str = "supersecret"
-    jwt_algorithm: str = "HS256"
-    jwt_expire_minutes: int = 60
-
     s3_url: str = "http://localhost:9000"
     access_key: str = "f0Sxs0Bf2pqJDQtFNQZF"
     secret_key: str = "hrGuLOhzFZBNWtmL5TJ8wiB2e5d9jIHeSzdEYXbW"
-    result_bucket: str = "test"
-    task_bucket: str = "test"
+    result_bucket: str = "result"
+    task_bucket: str = "task"
 
     booking_max_days: int = 3
 
     # sync plates
-    terminal_export_address: str = "ws://192.168.1.36:8765"
-    stream_export_address: str = "http://192.168.1.36:8080"
     sync_fpga_queue: str = "sync_de10_lite_1"
 
     # preshared keys

@@ -166,7 +166,7 @@ async def get_booking_by_token(
     type: BookEquipmentType = Query(...),
     db: Session = Depends(get_db),
 ):
-    query = select(Booking).where(Booking.session_token == token, Booking.type ==type)
+    query = select(Booking).where(Booking.session_token == token, Booking.type == type)
     booking = db.execute(query).scalar_one_or_none()
     if not booking:
         return HTTPException(401, detail="You have no booking with this token")

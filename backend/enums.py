@@ -28,6 +28,7 @@ class BookEquipmentType(StrEnum):
     raspberry_pi = "raspberry_pi"
     green = "green"  # todo standnart setting + sched
 
+
 class PinStates(StrEnum):
-    high="high"
-    low= "low"
+    high = "high"
+    low = "low"
